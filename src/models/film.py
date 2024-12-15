@@ -1,12 +1,22 @@
+from typing import Optional
+
 import orjson
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from genre import Genre
+from person import Person
 
 
 class Film(BaseModel):
     id: str
     title: str
-    description: str
+    description: Optional[str]
+    rating: float = Field(default=0.0)
+    genres: list[Genre]
+    directors: list[Person]
+    writers: list[Person]
+    actors: list[Person]
 
     class Config:
         json_loads = orjson.loads
