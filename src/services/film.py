@@ -47,6 +47,26 @@ class FilmService:
     async def _put_film_to_cache(self, film: Film):
         await self.redis.set(film.id, film.json(), ex=FILM_CACHE_EXPIRE_IN_SECONDS)
 
+    async def get_film_list(self, sort, page_size, page_number) -> list[Film]:
+        films = await self._get_films_list_from_elastic(sort, page_size, page_number)
+        return films
+
+    async def _get_films_list_from_elastic(self, sort, page_size, page_number):
+        try:
+            sort_clause = []
+            if sort:
+                if sort.startswith("-"):  # Сортировка по убыванию
+                    field = sort[1:]  # Убираем знак минус
+                    sort_clause.append({field: {"order": "desc"}})
+                else:  # Сортировка по возрастанию
+                    sort_clause.append({sort: {"order": "asc"}})
+
+            doc = await self.elastic.search(index='movies', size=page_size, from_=(page_number-1)*page_size, sort=sort_clause)
+
+            return [Film(**film['_source']) for film in doc['hits']['hits']]
+        except NotFoundError:
+            return []  # Если фильм не найден
+
 
 # get_film_service — это провайдер FilmService.
 # С помощью Depends он сообщает, что ему необходимы Redis и Elasticsearch

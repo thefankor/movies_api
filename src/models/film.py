@@ -4,8 +4,8 @@ import orjson
 
 from pydantic import BaseModel, Field
 
-from genre import Genre
-from person import Person
+from models.genre import Genre
+from models.person import Person
 
 
 class Film(BaseModel):
