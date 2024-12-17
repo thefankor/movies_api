@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     # Запрос для получения документа
     # response = es.search(index=index, size=10, from_=1, sort=[{"rating": {"order": "desc"}}],)
-    doc = es.search(index='genres')
+    doc = es.search(index='person')
     # films = [Film(**film['_source']) for film in doc['hits']['hits']]
     # films = [Film(**film['_source']) for film in doc['hits']['hits']]
 
