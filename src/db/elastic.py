@@ -39,10 +39,10 @@ if __name__ == '__main__':
     doc_id = "12afc5d5-af95-489b-801e-70cefa1b3ce5"
 
     # Запрос для получения документа
-    response = es.search(index=index, size=10, from_=1, sort=[{"rating": {"order": "desc"}}],)
-    # doc = es.search(index=index)
+    # response = es.search(index=index, size=10, from_=1, sort=[{"rating": {"order": "desc"}}],)
+    doc = es.search(index='genres')
     # films = [Film(**film['_source']) for film in doc['hits']['hits']]
     # films = [Film(**film['_source']) for film in doc['hits']['hits']]
 
     # Вывод результата
-    print(response)
+    print(doc)
