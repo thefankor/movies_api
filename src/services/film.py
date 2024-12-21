@@ -9,16 +9,13 @@ from fastapi import Depends
 from db.elastic import get_elastic
 from db.redis import get_redis
 from models.film import Film
+from services.base import BaseService
 
 
 FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5
 
 
-class FilmService:
-    def __init__(self, redis: Redis, elastic: AsyncElasticsearch):
-        self.redis = redis
-        self.elastic = elastic
-
+class FilmService(BaseService):
     async def get_by_id(self, film_id: str) -> Optional[Film]:
         film = await self._film_from_cache(film_id)
         if not film:
@@ -47,12 +44,35 @@ class FilmService:
     async def _put_film_to_cache(self, film: Film):
         await self.redis.set(film.id, film.json(), ex=FILM_CACHE_EXPIRE_IN_SECONDS)
 
-    async def get_film_list(self, sort, page_size, page_number) -> list[Film]:
-        films = await self._get_films_list_from_elastic(sort, page_size, page_number)
+    async def get_film_list(self, q, sort, page_size, page_number, genre) -> list[Film]:
+        films = await self._get_films_list_from_elastic(q, sort, page_size, page_number, genre)
         return films
 
-    async def _get_films_list_from_elastic(self, sort, page_size, page_number):
+    async def _get_films_list_from_elastic(self, q, sort, page_size, page_number, genre):
         try:
+            query = None
+            if q:
+                query = {
+                    "match": {
+                        "title": {
+                            "query": q,
+                            "fuzziness": "AUTO"
+                        }
+                    }
+                }
+            if genre:
+                query = {
+                    "nested": {
+                        "path": "genres",
+                        "query": {
+                            "bool": {
+                                "must": [
+                                    {"term": {"genres.id": genre}}
+                                ]
+                            }
+                        }
+                    }
+                }
             sort_clause = []
             if sort:
                 if sort.startswith("-"):  # Сортировка по убыванию
@@ -61,7 +81,8 @@ class FilmService:
                 else:  # Сортировка по возрастанию
                     sort_clause.append({sort: {"order": "asc"}})
 
-            doc = await self.elastic.search(index='movies', size=page_size, from_=(page_number-1)*page_size, sort=sort_clause)
+            doc = await self.elastic.search(index='movies', size=page_size, query=query,
+                                            from_=(page_number-1)*page_size, sort=sort_clause)
 
             return [Film(**film['_source']) for film in doc['hits']['hits']]
         except NotFoundError:

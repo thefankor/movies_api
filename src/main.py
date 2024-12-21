@@ -6,7 +6,7 @@ from elasticsearch import AsyncElasticsearch
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 
-from api.v1 import film
+from api.v1 import film, genre, person
 from core import config
 from core.logger import LOGGING
 from db import elastic, redis
@@ -35,7 +35,9 @@ async def shutdown():
     await elastic.es.close()
 
 
-app.include_router(film.router, prefix='/v1/films', tags=['film'])
+app.include_router(film.router, prefix='/v1/film', tags=['film'])
+app.include_router(genre.router, prefix='/v1/genre', tags=['genre'])
+app.include_router(person.router, prefix='/v1/person', tags=['person'])
 
 if __name__ == '__main__':
     uvicorn.run(
