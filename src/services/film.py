@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Optional
 
+
 # from aioredis import Redis
 from redis.asyncio import Redis
 from elasticsearch import AsyncElasticsearch, NotFoundError
@@ -10,6 +11,7 @@ from db.elastic import get_elastic
 from db.redis import get_redis
 from models.film import Film
 from services.base import BaseService
+# from base import BaseService
 
 
 FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5
@@ -17,12 +19,13 @@ FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5
 
 class FilmService(BaseService):
     async def get_by_id(self, film_id: str) -> Optional[Film]:
-        film = await self._film_from_cache(film_id)
+        film_cache = self.generate_cache_key("film", id=film_id)
+        film = await self._get_from_cache(film_cache, Film)
         if not film:
             film = await self._get_film_from_elastic(film_id)
             if not film:
                 return None
-            await self._put_film_to_cache(film)
+            await self._put_to_cache(film_cache, film)
         return film
 
     async def _get_film_from_elastic(self, film_id: str) -> Optional[Film]:
@@ -32,20 +35,13 @@ class FilmService(BaseService):
         except NotFoundError:
             return None  # Если фильм не найден
 
-    async def _film_from_cache(self, film_id: str) -> Optional[Film]:
-        # https://redis.io/commands/get
-        data = await self.redis.get(film_id)
-        if not data:
-            return None
-
-        film = Film.parse_raw(data)
-        return film
-
-    async def _put_film_to_cache(self, film: Film):
-        await self.redis.set(film.id, film.json(), ex=FILM_CACHE_EXPIRE_IN_SECONDS)
-
     async def get_film_list(self, q, sort, page_size, page_number, genre) -> list[Film]:
-        films = await self._get_films_list_from_elastic(q, sort, page_size, page_number, genre)
+        films_cache = self.generate_cache_key("films", q=q, sort=sort,
+                                              page_size=page_size, page_number=page_number, genre=genre)
+        films = await self._get_list_from_cache(films_cache, Film)
+        if not films:
+            films = await self._get_films_list_from_elastic(q, sort, page_size, page_number, genre)
+            await self._put_list_to_cache(films_cache, films)
         return films
 
     async def _get_films_list_from_elastic(self, q, sort, page_size, page_number, genre):

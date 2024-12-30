@@ -17,11 +17,25 @@ FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5
 
 class PersonService(BaseService):
     async def get_by_id(self, person_id: str) -> Optional[Person]:
-        pers = await self._get_person_from_elastic(person_id)
+        person_cache = self.generate_cache_key("person", person_id=person_id)
+        print(person_cache)
+        pers = await self._get_from_cache(person_cache, Person)
+        if not pers:
+            print('na cache')
+            pers = await self._get_person_from_elastic(person_id)
+            if not pers:
+                return None
+            await self._put_to_cache(person_cache, pers)
         return pers
 
     async def get_films_by_person(self, person_id: str) -> list[Film]:
-        films = await self._get_films_info(person_id)
+        person_cache = self.generate_cache_key("person_films", person_id=person_id)
+        print(person_cache)
+        films = await self._get_list_from_cache(person_cache, Film)
+        if not films:
+            print('no cache')
+            films = await self._get_films_info(person_id)
+            await self._put_list_to_cache(person_cache, films)
         return films
 
     async def _get_films_info(self, person_id):
@@ -43,8 +57,14 @@ class PersonService(BaseService):
         return film_ids
 
     async def get_person_list(self, q, page_size, page_number) -> list[Person]:
-        films = await self._get_persons_list_from_elastic(q, page_size, page_number)
-        return films
+        person_cache = self.generate_cache_key("persons", q=q, page_size=page_size, page_number=page_number)
+        print(person_cache)
+        persons = await self._get_list_from_cache(person_cache, Person)
+        if not persons:
+            print('no cache')
+            persons = await self._get_persons_list_from_elastic(q, page_size, page_number)
+            await self._put_list_to_cache(person_cache, persons)
+        return persons
 
     async def _get_persons_list_from_elastic(self, q, page_size, page_number):
         try:
