@@ -9,6 +9,8 @@ from models.person import PersonMini
 
 
 class Film(BaseModel):
+    __title__ = "movies"
+
     id: str
     title: str
     description: Optional[str]
