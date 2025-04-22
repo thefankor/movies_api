@@ -10,6 +10,8 @@ from api.v1 import film, genre, person
 from core import config
 from core.logger import LOGGING
 from db import elastic, redis
+from db.redis import RedisCache
+from db.elastic import ElasticSearchService
 
 app = FastAPI(
     title=config.PROJECT_NAME,
@@ -19,19 +21,24 @@ app = FastAPI(
 )
 
 
+async def init_redis(host: str, port: int) -> RedisCache:
+    client = await aioredis.from_url(f"redis://{host}:{port}", max_connections=20)
+    return RedisCache(client)
+
+async def init_elastic(host: str, port: int) -> ElasticSearchService:
+    client = AsyncElasticsearch(hosts=[f"http://{host}:{port}"])
+    return ElasticSearchService(client)
+
 @app.on_event('startup')
 async def startup():
-    # Подключаемся к базам при старте сервера
-    # Подключиться можем при работающем event-loop
-    # Поэтому логика подключения происходит в асинхронной функции
-    redis.redis_client = await aioredis.from_url(f"redis://{config.REDIS_HOST}:{config.REDIS_PORT}", max_connections=20)
-    elastic.es = AsyncElasticsearch(hosts=[f"http://{config.ELASTIC_HOST}:{config.ELASTIC_PORT}"])
+    redis.redis_cache = await init_redis(config.REDIS_HOST, config.REDIS_PORT)
+    elastic.es = await init_elastic(config.ELASTIC_HOST, config.ELASTIC_PORT)
 
 
 @app.on_event('shutdown')
 async def shutdown():
     # Отключаемся от баз при выключении сервера
-    await redis.redis_client.close()
+    await redis.redis_cache.close()
     await elastic.es.close()
 
 

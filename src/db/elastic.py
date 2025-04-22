@@ -1,48 +1,25 @@
-import uuid
-from typing import Optional
+from elasticsearch import AsyncElasticsearch, NotFoundError
 
-from elasticsearch import AsyncElasticsearch, Elasticsearch
-
-from pydantic import BaseModel, Field
-
-es: AsyncElasticsearch = None
-
-class Person(BaseModel):
-    id: uuid.UUID
-    name: str
+from db.db import SearchWorker
 
 
-class Genre(BaseModel):
-    id: uuid.UUID
-    name: str
+class ElasticSearchService(SearchWorker):
+    def __init__(self, client: AsyncElasticsearch):
+        super().__init__(client)
+        self.es = self.client
+
+    async def get(self, index: str, id: str, **kwargs):
+        try:
+            return await self.es.get(index=index, id=id, **kwargs)
+        except NotFoundError:
+            return None
+
+    async def search(self, index: str, **kwargs):
+        return await self.es.search(index=index, **kwargs)
 
 
-class Film(BaseModel):
-    id: str
-    title: str
-    description: Optional[str]
-    rating: float = Field(default=0.0)
-    genres: list[Genre]
-    directors: list[Person]
-    writers: list[Person]
-    actors: list[Person]
+es: ElasticSearchService = None
 
-# Функция понадобится при внедрении зависимостей
-async def get_elastic() -> AsyncElasticsearch:
+
+async def get_elastic() -> ElasticSearchService:
     return es
-
-if __name__ == '__main__':
-    es = Elasticsearch("http://localhost:9200")
-
-    # Параметры для поиска по ID
-    index = "movies"
-    doc_id = "12afc5d5-af95-489b-801e-70cefa1b3ce5"
-
-    # Запрос для получения документа
-    # response = es.search(index=index, size=10, from_=1, sort=[{"rating": {"order": "desc"}}],)
-    doc = es.search(index='person')
-    # films = [Film(**film['_source']) for film in doc['hits']['hits']]
-    # films = [Film(**film['_source']) for film in doc['hits']['hits']]
-
-    # Вывод результата
-    print(doc)
